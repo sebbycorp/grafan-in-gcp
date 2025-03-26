@@ -38,13 +38,14 @@ terraform.rc
 
 # Ignore service account keys and other sensitive files
 *.json
+# EXCEPTION: Allow dashboard JSON files
+!helm/monitoring/grafana/dashboards/**/*.json
 key.json
 service-account-key.json
 *.pem
 *.key
 
 # Ignore temporary files
-*~
 *.swp
 *.swo
 .DS_Store
