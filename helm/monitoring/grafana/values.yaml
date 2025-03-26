@@ -25,4 +25,19 @@ datasources:
         type: prometheus
         url: http://prometheus-server.monitoring.svc.cluster.local
         access: proxy
-        isDefault: true 
+        isDefault: true
+
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    searchNamespace: ALL
+    folderAnnotation: grafana_folder
+    provider:
+      allowUiUpdates: true
+      foldersFromFilesStructure: true
+      folder: ""
+      type: file
+      name: 'default'
+    SCProvider: true
+    skipReload: false 
