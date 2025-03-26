@@ -1,0 +1,28 @@
+persistence:
+  enabled: true
+  size: 10Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+adminPassword: admin  # Change this in production!
+
+service:
+  type: LoadBalancer
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        access: proxy
+        isDefault: true 
