@@ -1,0 +1,1 @@
+In the deploy folder i want to build some k8s yaml configs that help me deploy a ngninx webapp and expose it out on the internet using gcp load balancers using port 80 , unless you can my dns zone in gcp dns zone name maniak dns name maniak.io in project maniak-io i want to use testdemo.maniak.io for this demo app 
