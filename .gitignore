@@ -35,3 +35,16 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Ignore service account keys and other sensitive files
+*.json
+key.json
+service-account-key.json
+*.pem
+*.key
+
+# Ignore temporary files
+*~
+*.swp
+*.swo
+.DS_Store
