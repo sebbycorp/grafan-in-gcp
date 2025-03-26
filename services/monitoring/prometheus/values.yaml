@@ -1,0 +1,106 @@
+server:
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+  retention: 15d
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  service:
+    type: LoadBalancer
+    annotations:
+      cloud.google.com/neg: '{"ingress": true}'
+      cloud.google.com/load-balancer-source-ranges: '["74.12.8.53/32"]'
+  extraConfigmapMounts:
+    - name: prometheus-scrape-configs
+      mountPath: /etc/prometheus/prometheus.yaml
+      configMap: prometheus-scrape-configs
+      subPath: prometheus.yaml
+      readOnly: true
+
+alertmanager:
+  enabled: false
+
+pushgateway:
+  enabled: false
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+# Global service configuration is not used for server component
+service:
+  type: ClusterIP
+
+# Remove ingress configuration since we're using LoadBalancer service type 
+
+# OpenTelemetry Collector configuration
+opentelemetryCollector:
+  enabled: true
+  mode: deployment
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 400Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      batch:
+        timeout: 10s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 800
+    exporters:
+      prometheus:
+        endpoint: 0.0.0.0:8889
+        namespace: otel
+        send_timestamps: true
+        metric_expiration: 180m
+      logging:
+        loglevel: debug
+    service:
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          processors: [batch, memory_limiter]
+          exporters: [prometheus, logging]
+        traces:
+          receivers: [otlp]
+          processors: [batch, memory_limiter]
+          exporters: [logging]
+        logs:
+          receivers: [otlp]
+          processors: [batch, memory_limiter]
+          exporters: [logging]
+  service:
+    type: ClusterIP
+    ports:
+      - name: otlp-grpc
+        port: 4317
+        protocol: TCP
+        targetPort: 4317
+      - name: otlp-http
+        port: 4318
+        protocol: TCP
+        targetPort: 4318
+      - name: metrics
+        port: 8889
+        protocol: TCP
+        targetPort: 8889 

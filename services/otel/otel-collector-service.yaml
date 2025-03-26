@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: monitoring
+  labels:
+    app: otel-collector
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+    # Add your on-prem IP ranges here. Replace with your actual IPs.
+    cloud.google.com/load-balancer-source-ranges: '["74.12.8.53/32"]'
+spec:
+  type: LoadBalancer
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      protocol: TCP
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      protocol: TCP
+      targetPort: 4318
+    - name: metrics
+      port: 8889
+      protocol: TCP
+      targetPort: 8889
+  selector:
+    app: otel-collector 
