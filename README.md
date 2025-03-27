@@ -87,3 +87,165 @@ After applying the Terraform configuration, you can connect to your cluster in t
 - The configuration uses a custom service account for the GKE nodes
 - Logging and monitoring are enabled by default
 - The cluster's connection information is available in the Terraform outputs
+
+# OpenTelemetry Collector Setup Guide
+
+This repository contains the configuration for running OpenTelemetry Collector with F5 BIG-IP monitoring capabilities.
+
+## Architecture Overview
+
+- **On-premises**: OpenTelemetry Collector with BIG-IP receiver running in Docker
+- **GCP**: Kubernetes-hosted OpenTelemetry Collector that receives data and exports to Prometheus
+- **Monitoring**: Prometheus for metrics storage and Grafana for visualization
+
+## Running OpenTelemetry Collector On-Premises
+
+Follow these steps to run the OpenTelemetry Collector on a Linux server with Docker already installed.
+
+### 1. Create the directory structure
+
+```bash
+mkdir -p onprem-otel/config
+mkdir -p onprem-otel/scripts
+```
+
+### 2. Create the collector configuration file
+
+```bash
+nano onprem-otel/config/otel-config.yaml
+```
+
+### 3. Add this configuration
+
+Adjust with your BIG-IP details and GCP collector IP:
+
+```yaml
+receivers:
+  bigip:
+    endpoint: "https://YOUR_BIGIP_IP"
+    username: "${env:BIGIP_USERNAME}"
+    password: "${env:BIGIP_PASSWORD}"
+    collection_interval: 60s
+    tls:
+      insecure_skip_verify: true
+    data_types:
+      f5.system:
+        enabled: true
+      f5.ltm:
+        enabled: true
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+exporters:
+  otlp:
+    endpoint: "34.72.52.230:4317"
+    tls:
+      insecure: true
+  logging:
+    verbosity: detailed
+
+service:
+  pipelines:
+    metrics:
+      receivers: [bigip]
+      processors: [batch]
+      exporters: [otlp, logging]
+```
+
+### 4. Run the collector with Docker
+
+```bash
+docker run -d --name otel-collector \
+  -p 8888:8888 \
+  -v "$(pwd)/onprem-otel/config/otel-config.yaml:/etc/otel/config.yaml" \
+  -e BIGIP_USERNAME="admin" \
+  -e BIGIP_PASSWORD="your_secure_password" \
+  --restart unless-stopped \
+  ghcr.io/f5devcentral/application-study-tool/otel_custom_collector:v0.9.2 \
+  --config=/etc/otel/config.yaml
+```
+
+### 5. Verify it's running
+
+```bash
+docker ps | grep otel-collector
+```
+
+### 6. Check logs to ensure it's working
+
+```bash
+docker logs otel-collector
+```
+
+### 7. Management Commands
+
+**Stop the collector:**
+```bash
+docker stop otel-collector
+```
+
+**Remove the container:**
+```bash
+docker rm otel-collector
+```
+
+## GCP Infrastructure Components
+
+The repository includes Kubernetes manifests for deploying:
+
+- OpenTelemetry Collector in GCP (services/otel)
+- Prometheus for metrics storage (services/monitoring/prometheus)
+- Grafana for visualization (services/monitoring/grafana)
+
+## Security Considerations
+
+For production deployments:
+
+1. Use proper TLS certificates instead of `insecure: true` and `insecure_skip_verify: true`
+2. Implement proper authentication for the OpenTelemetry Collector
+3. Store sensitive credentials in Kubernetes Secrets or environment variables
+4. Restrict network access to your collectors using appropriate firewall rules
+
+## Troubleshooting
+
+### Issue: Configuration file appears as a directory
+
+**Error message:**
+```
+cannot retrieve the configuration: unable to read the file file:/etc/otel/config.yaml: read /etc/otel/config.yaml: is a directory
+```
+
+**Solution:**
+This happens when the Docker volume mount creates a directory instead of mounting a file. Try these solutions:
+
+1. Use absolute path with read-only flag:
+```bash
+docker run -d --name otel-collector \
+  -p 8888:8888 \
+  -v "$(pwd)/onprem-otel/config/otel-config.yaml:/etc/otel/config.yaml:ro" \
+  -e BIGIP_USERNAME="admin" \
+  -e BIGIP_PASSWORD="your_secure_password" \
+  --restart unless-stopped \
+  ghcr.io/f5devcentral/application-study-tool/otel_custom_collector:v0.9.2 \
+  --config=/etc/otel/config.yaml
+```
+
+2. Alternative: Copy the config file into the container instead of mounting:
+```bash
+# Start container without config
+docker run -d --name otel-collector \
+  -p 8888:8888 \
+  -e BIGIP_USERNAME="admin" \
+  -e BIGIP_PASSWORD="your_secure_password" \
+  --restart unless-stopped \
+  ghcr.io/f5devcentral/application-study-tool/otel_custom_collector:v0.9.2
+  
+# Copy the config file into the container
+docker cp onprem-otel/config/otel-config.yaml otel-collector:/etc/otel/config.yaml
+
+# Restart the container
+docker restart otel-collector
+```
