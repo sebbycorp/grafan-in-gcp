@@ -208,3 +208,44 @@ For production deployments:
 2. Implement proper authentication for the OpenTelemetry Collector
 3. Store sensitive credentials in Kubernetes Secrets or environment variables
 4. Restrict network access to your collectors using appropriate firewall rules
+
+## Troubleshooting
+
+### Issue: Configuration file appears as a directory
+
+**Error message:**
+```
+cannot retrieve the configuration: unable to read the file file:/etc/otel/config.yaml: read /etc/otel/config.yaml: is a directory
+```
+
+**Solution:**
+This happens when the Docker volume mount creates a directory instead of mounting a file. Try these solutions:
+
+1. Use absolute path with read-only flag:
+```bash
+docker run -d --name otel-collector \
+  -p 8888:8888 \
+  -v "$(pwd)/onprem-otel/config/otel-config.yaml:/etc/otel/config.yaml:ro" \
+  -e BIGIP_USERNAME="admin" \
+  -e BIGIP_PASSWORD="your_secure_password" \
+  --restart unless-stopped \
+  ghcr.io/f5devcentral/application-study-tool/otel_custom_collector:v0.9.2 \
+  --config=/etc/otel/config.yaml
+```
+
+2. Alternative: Copy the config file into the container instead of mounting:
+```bash
+# Start container without config
+docker run -d --name otel-collector \
+  -p 8888:8888 \
+  -e BIGIP_USERNAME="admin" \
+  -e BIGIP_PASSWORD="your_secure_password" \
+  --restart unless-stopped \
+  ghcr.io/f5devcentral/application-study-tool/otel_custom_collector:v0.9.2
+  
+# Copy the config file into the container
+docker cp onprem-otel/config/otel-config.yaml otel-collector:/etc/otel/config.yaml
+
+# Restart the container
+docker restart otel-collector
+```
